@@ -9,15 +9,22 @@
 
 ## Takeaway: Recommendation for Accuracy-Critical Use
 
-**Use High / Thinking ON as your default.**
+**Principle: always keep Thinking ON.** At Low, Med, and High effort, Thinking ON costs the same or less than Thinking OFF — the model writes more concisely after a reasoning pass, offsetting the small thinking token cost. There is no reason to use Thinking OFF at these levels.
 
-- Costs the same as High / Thinking OFF on average (both 1.57× baseline), but Thinking ON means the model runs a reasoning pass before responding — consistently 34–35 thinking tokens across all 5 runs, regardless of output variance
-- The reasoning pass is modest at High effort, but it is real and stable; it is absent entirely at Low and Med
-- High / Thinking OFF has slightly higher variance (stdev 99 vs 89), making High / Thinking ON marginally more predictable in addition to providing reasoning
+**Tiered settings by task type:**
 
-**Switch to Max / Thinking ON for genuinely complex tasks** — multi-step logical problems, anything where you have previously noticed quality gaps. Accept that it costs ~3× the baseline with a wide variance (2.54–3.48×). It is the only state where extended reasoning is meaningfully active (avg 422 thinking tokens).
+| Task | Setting | Avg cost |
+|---|---|---:|
+| Simple tasks (lookups, drafting, formatting) | Low / Thinking ON | 0.97× |
+| Fallback if rate limits become a constraint | Med / Thinking ON | 1.24× |
+| **Default for accuracy-critical work** | **High / Thinking ON** | **1.57×** |
+| Complex multi-step reasoning | Max / Thinking ON | ~3× |
 
-**Do not use Max / Thinking OFF.** It produces longer output without any reasoning — more words, not more rigor. At 1.40× average cost, it is nearly as expensive as High / Thinking ON while offering none of the reasoning benefit.
+**Why High over Med as default:** the cost difference is 0.33× (~174 tokens/response). At High, the reasoning pass is consistently 34–35 thinking tokens across all 5 runs versus 26 at Med — a stable gap — and output is meaningfully more thorough. For accuracy-critical work the premium is justified. If rate limits become a practical constraint, step down to Med / Thinking ON. Do not turn Thinking off.
+
+**Max / Thinking ON** is the only state where extended reasoning is genuinely active (avg 422 thinking tokens, range 357–483). Cost is ~3× baseline with high variance (2.54–3.48×); use selectively for the most demanding tasks.
+
+**Do not use Max / Thinking OFF.** At 1.40× it costs nearly as much as High / Thinking ON but produces longer output with zero reasoning — more words, not more rigor.
 
 ---
 
@@ -49,7 +56,7 @@
 | Max / Thinking OFF | 1.40× | 1.30–1.60× | 69 |
 | Max / Thinking ON | **2.98×** | 2.54–3.48× | 210 |
 
-### Per-run multipliers (each run's own Low/Thinking OFF as baseline)
+### Per-run multipliers (each run's own Low / Thinking OFF as baseline)
 
 | State | Run 1 | Run 2 | Run 3 | Run 4 | Run 5 |
 |---|---:|---:|---:|---:|---:|
@@ -137,21 +144,19 @@
 
 ## Observations
 
-- **Low / Thinking OFF and ON are the most stable states** — by a wide margin. Stdev of 15 and 9 tokens respectively. Low / Thinking ON averaged 0.97× (3% cheaper), though it crossed above 1.00× in run 2. Over 5 runs the difference is negligible; treat them as equivalent in cost.
+- **At Low, Med, and High effort, Thinking ON reduces output tokens** — the model writes more concisely after a reasoning pass, more than offsetting the small thinking token cost. This pattern held across all 5 runs for these three effort levels. At Max, the dynamic reverses: thinking tokens are large enough that Max / Thinking ON costs significantly more than Max / Thinking OFF.
 
-- **Thinking tokens are negligible except at Max.** Low averages 8 thinking tokens, Med 26, High 35 — stable across all 5 runs. Thinking token count at these levels is essentially fixed. Only Max / Thinking ON allocates a meaningful reasoning budget, averaging 422 tokens and ranging from 357 to 483.
+- **Thinking tokens are stable and small except at Max.** Low averages 8, Med 26, High 35 — consistent across all 5 runs. Only Max / Thinking ON allocates a meaningful reasoning budget, averaging 422 tokens (range 357–483).
 
-- **High / Thinking OFF and High / Thinking ON converged to the same average** (both 1.57×, 829 and 830 tokens respectively). This is a meaningful result: enabling Thinking at High effort costs the same as disabling it, because the model compensates with shorter output. However, High / Thinking OFF has higher variance (stdev 99 vs 89), driven by run 5 producing only 665 total tokens — well below all other runs (818–915). Run 5 is a genuine outlier for this state.
+- **High / Thinking ON and High / Thinking OFF averaged identically** (1.57×, 830 vs 829 tokens). Thinking ON is preferred not for cost but because it provides a stable reasoning pass and slightly lower variance (stdev 89 vs 99).
 
-- **Max / Thinking OFF showed an inverse anomaly in run 5** — 855 tokens vs 671–741 in all prior runs. High / Thinking OFF and Max / Thinking OFF effectively swapped positions in run 5, suggesting the model's output length for these two states is not reliably ordered. Over 5 runs, their averages (829 vs 741) reflect this instability.
+- **Med / Thinking ON was cheaper than Med / Thinking OFF in all 5 runs** (1.24× vs 1.33×) — the most consistent efficiency finding in the dataset.
 
-- **Max / Thinking ON is the highest-cost and highest-variance state** (stdev 210, range 1343–1812). It is the only state where extended reasoning genuinely runs, but budget planning is difficult: any given session could cost anywhere from 2.54× to 3.48× of the Low baseline.
+- **Max / Thinking OFF is not a useful state.** Despite being labelled "Max", it runs no reasoning. Its output length is unpredictable (stdev 69, and in run 5 it exceeded High / Thinking OFF) and its cost approaches High / Thinking ON without the reasoning benefit.
 
-- **Med / Thinking ON is consistently cheaper than Med / Thinking OFF** across all 5 runs (1.24× vs 1.33× averaged). This held without exception and is the clearest efficiency finding: at Medium effort, enabling Thinking produces more concise output that more than offsets the small thinking token cost.
+- **Run 5 produced notable anomalies:** High / Thinking OFF dropped to 665 tokens (vs 818–915 in all prior runs) and Max / Thinking OFF jumped to 855 (vs 671–741). The two states effectively swapped, illustrating that output length ordering between states is not guaranteed within a single session.
 
-- **Practical takeaway:** If token predictability matters, use Low (either Thinking state). If you want reasoning depth at stable cost, High / Thinking ON and High / Thinking OFF are now statistically equivalent — choose based on output quality preference rather than token cost. Max / Thinking ON is the only state with active extended reasoning but requires accepting high cost variance.
-
-> **Caveat:** These results are based on 5 runs of a single analytical prompt. Token counts are non-deterministic — run 5 produced a significant outlier for High / Thinking OFF (665 vs expected ~850) and Max / Thinking OFF (855 vs expected ~720), demonstrating that even 5 runs is insufficient to fully characterise variance at higher effort levels. Multipliers are directional for this prompt type and should not be extrapolated to other categories (creative writing, code generation, etc.) without separate testing.
+> **Caveat:** 5 runs of a single analytical prompt. Multipliers are directional — run 5 demonstrated that even this sample size is insufficient to fully characterise variance at High and Max effort levels. Results should not be extrapolated to other prompt categories without separate testing.
 
 ---
 
